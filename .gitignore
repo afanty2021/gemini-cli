@@ -55,3 +55,7 @@ gha-creds-*.json
 patch_output.log
 
 .genkit
+
+# AI agent runtime directories
+.claude-flow/
+.swarm/
