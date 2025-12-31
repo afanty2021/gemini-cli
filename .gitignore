@@ -59,3 +59,6 @@ patch_output.log
 # AI agent runtime directories
 .claude-flow/
 .swarm/
+
+# Clipboard directory
+.gemini-clipboard/
