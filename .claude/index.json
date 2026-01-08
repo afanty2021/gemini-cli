@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-24T00:00:00.000Z",
+  "timestamp": "2026-01-08T00:00:00.000Z",
   "project": {
     "name": "gemini-cli",
     "type": "monorepo",
@@ -7,7 +7,7 @@
     "language": "typescript",
     "frameworks": ["react", "ink", "node"],
     "packageManager": "npm",
-    "version": "0.19.0-nightly.20251124.e177314a4"
+    "version": "0.25.0-nightly.20260107.59a18e710"
   },
   "modules": [
     {
@@ -36,7 +36,7 @@
       "hasTests": true,
       "hasDocs": true,
       "scanned": true,
-      "services": 9,
+      "services": 10,
       "coverage": "100%"
     },
     {
@@ -132,7 +132,7 @@
       "entryFiles": 8,
       "coreInterfaces": 8,
       "documentation": 8,
-      "coreServices": 9,
+      "coreServices": 10,
       "uiComponents": 64,
       "commandSystem": 21,
       "cliConfiguration": 12,
@@ -354,6 +354,24 @@
         "file": "packages/core/src/services/fileDiscoveryService.ts",
         "functionality": "文件发现和过滤，基于.gitignore和.geminiignore规则",
         "keyFeatures": ["Git忽略规则", "Gemini忽略规则", "组合过滤", "报告生成"]
+      },
+      {
+        "name": "SkillManager",
+        "file": "packages/core/src/services/skillManager.ts",
+        "functionality": "Agent技能管理器，统一技能发现和加载机制",
+        "keyFeatures": ["技能发现", "优先级管理", "集中加载", "状态栏集成"]
+      },
+      {
+        "name": "SkillLoader",
+        "file": "packages/core/src/services/skillLoader.ts",
+        "functionality": "技能加载器，解析YAML frontmatter和验证技能定义",
+        "keyFeatures": ["YAML frontmatter解析", "Glob模式搜索", "技能定义验证"]
+      },
+      {
+        "name": "ShellSecurityPolicy",
+        "file": "packages/core/src/policy/policy-engine.ts",
+        "functionality": "Shell安全策略系统，统一的命令执行安全验证",
+        "keyFeatures": ["统一安全策略", "命令验证", "权限管理", "遗留逻辑移除"]
       }
     ],
     "uiComponentsAnalyzed": [
@@ -440,12 +458,13 @@
     "keyAchievements": [
       "UI component system 100% covered - 64 React components",
       "Command system 100% covered - 21 command files",
-      "Core services 100% covered - 9 essential services",
+      "Core services 100% covered - 10 essential services (updated with Agent Skills and Shell Security)",
       "Integration tests 100% covered - 45 test files with TestRig framework",
       "Build system 100% covered - 45 automation scripts",
       "Documentation 100% covered - 28 user and developer docs",
       "AI-ready project with complete knowledge base",
-      "All modules documented with comprehensive CLAUDE.md files"
+      "All modules documented with comprehensive CLAUDE.md files",
+      "Latest upstream sync (2026-01-04) - Agent Skills system refactoring and Shell security policy unification"
     ],
     "aiReadiness": {
       "projectUnderstanding": "Complete",

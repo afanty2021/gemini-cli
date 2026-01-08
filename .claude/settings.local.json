@@ -2,5 +2,10 @@
   "disabledMcpjsonServers": [
     "claude-flow@alpha",
     "flow-nexus"
-  ]
+  ],
+  "permissions": {
+    "allow": [
+      "Skill(zcf:init-project)"
+    ]
+  }
 }
