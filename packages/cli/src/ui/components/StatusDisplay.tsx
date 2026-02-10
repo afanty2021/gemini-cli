@@ -8,6 +8,7 @@ import type React from 'react';
 import { Text } from 'ink';
 import { theme } from '../semantic-colors.js';
 import { useUIState } from '../contexts/UIStateContext.js';
+import { TransientMessageType } from '../../utils/events.js';
 import { useSettings } from '../contexts/SettingsContext.js';
 import { useConfig } from '../contexts/ConfigContext.js';
 import { ContextSummaryDisplay } from './ContextSummaryDisplay.js';
@@ -25,7 +26,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
   const config = useConfig();
 
   if (process.env['GEMINI_SYSTEM_MD']) {
-    return <Text color={theme.status.error}>|⌐■_■| </Text>;
+    return <Text color={theme.status.error}>|⌐■_■|</Text>;
   }
 
   if (uiState.ctrlCPressedOnce) {
@@ -34,8 +35,13 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
     );
   }
 
-  if (uiState.warningMessage) {
-    return <Text color={theme.status.warning}>{uiState.warningMessage}</Text>;
+  if (
+    uiState.transientMessage?.type === TransientMessageType.Warning &&
+    uiState.transientMessage.text
+  ) {
+    return (
+      <Text color={theme.status.warning}>{uiState.transientMessage.text}</Text>
+    );
   }
 
   if (uiState.ctrlDPressedOnce) {
@@ -45,7 +51,27 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
   }
 
   if (uiState.showEscapePrompt) {
-    return <Text color={theme.text.secondary}>Press Esc again to clear.</Text>;
+    const isPromptEmpty = uiState.buffer.text.length === 0;
+    const hasHistory = uiState.history.length > 0;
+
+    if (isPromptEmpty && !hasHistory) {
+      return null;
+    }
+
+    return (
+      <Text color={theme.text.secondary}>
+        Press Esc again to {isPromptEmpty ? 'rewind' : 'clear prompt'}.
+      </Text>
+    );
+  }
+
+  if (
+    uiState.transientMessage?.type === TransientMessageType.Hint &&
+    uiState.transientMessage.text
+  ) {
+    return (
+      <Text color={theme.text.secondary}>{uiState.transientMessage.text}</Text>
+    );
   }
 
   if (uiState.queueErrorMessage) {
@@ -54,12 +80,12 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
 
   if (
     uiState.activeHooks.length > 0 &&
-    (settings.merged.hooks?.notifications ?? true)
+    settings.merged.hooksConfig.notifications
   ) {
     return <HookStatusDisplay activeHooks={uiState.activeHooks} />;
   }
 
-  if (!settings.merged.ui?.hideContextSummary && !hideContextSummary) {
+  if (!settings.merged.ui.hideContextSummary && !hideContextSummary) {
     return (
       <ContextSummaryDisplay
         ideContext={uiState.ideContextState}
@@ -69,7 +95,8 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
         blockedMcpServers={
           config.getMcpClientManager()?.getBlockedMcpServers() ?? []
         }
-        skillCount={config.getSkillManager().getSkills().length}
+        skillCount={config.getSkillManager().getDisplayableSkills().length}
+        backgroundProcessCount={uiState.backgroundShellCount}
       />
     );
   }

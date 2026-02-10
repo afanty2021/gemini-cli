@@ -12,7 +12,6 @@ import type {
 import {
   ApprovalMode,
   DEFAULT_GEMINI_MODEL,
-  DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES,
   DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD,
   GeminiClient,
   HookSystem,
@@ -25,6 +24,7 @@ import { expect, vi } from 'vitest';
 export function createMockConfig(
   overrides: Partial<Config> = {},
 ): Partial<Config> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const mockConfig = {
     getToolRegistry: vi.fn().mockReturnValue({
       getTool: vi.fn(),
@@ -41,13 +41,13 @@ export function createMockConfig(
     }),
     getTargetDir: () => '/test',
     getCheckpointingEnabled: vi.fn().mockReturnValue(false),
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     storage: {
       getProjectTempDir: () => '/tmp',
       getProjectTempCheckpointsDir: () => '/tmp/checkpoints',
     } as Storage,
     getTruncateToolOutputThreshold: () =>
       DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD,
-    getTruncateToolOutputLines: () => DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES,
     getActiveModel: vi.fn().mockReturnValue(DEFAULT_GEMINI_MODEL),
     getDebugMode: vi.fn().mockReturnValue(false),
     getContentGeneratorConfig: vi.fn().mockReturnValue({ model: 'gemini-pro' }),
@@ -147,6 +147,7 @@ export function assertUniqueFinalEventIsLast(
   events: SendStreamingMessageSuccessResponse[],
 ) {
   // Final event is input-required & final
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const finalEvent = events[events.length - 1].result as TaskStatusUpdateEvent;
   expect(finalEvent.metadata?.['coderAgent']).toMatchObject({
     kind: 'state-change',
@@ -156,9 +157,11 @@ export function assertUniqueFinalEventIsLast(
 
   // There is only one event with final and its the last
   expect(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     events.filter((e) => (e.result as TaskStatusUpdateEvent).final).length,
   ).toBe(1);
   expect(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     events.findIndex((e) => (e.result as TaskStatusUpdateEvent).final),
   ).toBe(events.length - 1);
 }
@@ -167,11 +170,13 @@ export function assertTaskCreationAndWorkingStatus(
   events: SendStreamingMessageSuccessResponse[],
 ) {
   // Initial task creation event
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const taskEvent = events[0].result as SDKTask;
   expect(taskEvent.kind).toBe('task');
   expect(taskEvent.status.state).toBe('submitted');
 
   // Status update: working
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const workingEvent = events[1].result as TaskStatusUpdateEvent;
   expect(workingEvent.kind).toBe('status-update');
   expect(workingEvent.status.state).toBe('working');

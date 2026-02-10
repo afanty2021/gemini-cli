@@ -10,6 +10,7 @@ import { debugLogger } from '@google/gemini-cli-core';
 import { exitCli } from '../utils.js';
 import { enableSkill } from '../../utils/skillSettings.js';
 import { renderSkillActionFeedback } from '../../utils/skillUtils.js';
+import chalk from 'chalk';
 
 interface EnableArgs {
   name: string;
@@ -21,7 +22,11 @@ export async function handleEnable(args: EnableArgs) {
   const settings = loadSettings(workspaceDir);
 
   const result = enableSkill(settings, name);
-  debugLogger.log(renderSkillActionFeedback(result, (label, _path) => label));
+  const feedback = renderSkillActionFeedback(
+    result,
+    (label, path) => `${chalk.bold(label)} (${chalk.dim(path)})`,
+  );
+  debugLogger.log(feedback);
 }
 
 export const enableCommand: CommandModule = {
@@ -35,6 +40,7 @@ export const enableCommand: CommandModule = {
     }),
   handler: async (argv) => {
     await handleEnable({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       name: argv['name'] as string,
     });
     await exitCli();

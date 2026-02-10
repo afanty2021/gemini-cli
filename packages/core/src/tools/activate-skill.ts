@@ -80,6 +80,10 @@ class ActivateSkillToolInvocation extends BaseToolInvocation<
       return false;
     }
 
+    if (skill.isBuiltin) {
+      return false;
+    }
+
     const folderStructure = await this.getOrFetchFolderStructure(
       skill.location,
     );
@@ -171,6 +175,7 @@ export class ActivateSkillTool extends BaseDeclarativeTool<
     } else {
       schema = z.object({
         name: z
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .enum(skillNames as [string, ...string[]])
           .describe('The name of the skill to activate.'),
       });

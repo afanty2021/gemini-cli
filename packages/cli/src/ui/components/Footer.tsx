@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,6 +17,7 @@ import process from 'node:process';
 import { ThemedGradient } from './ThemedGradient.js';
 import { MemoryUsageDisplay } from './MemoryUsageDisplay.js';
 import { ContextUsageDisplay } from './ContextUsageDisplay.js';
+import { QuotaDisplay } from './QuotaDisplay.js';
 import { DebugProfiler } from './DebugProfiler.js';
 import { isDevelopment } from '../../utils/installationInfo.js';
 import { useUIState } from '../contexts/UIStateContext.js';
@@ -42,7 +43,8 @@ export const Footer: React.FC = () => {
     promptTokenCount,
     nightly,
     isTrustedFolder,
-    mainAreaWidth,
+    terminalWidth,
+    quotaStats,
   } = {
     model: uiState.currentModel,
     targetDir: config.getTargetDir(),
@@ -55,18 +57,18 @@ export const Footer: React.FC = () => {
     promptTokenCount: uiState.sessionStats.lastPromptTokenCount,
     nightly: uiState.nightly,
     isTrustedFolder: uiState.isTrustedFolder,
-    mainAreaWidth: uiState.mainAreaWidth,
+    terminalWidth: uiState.terminalWidth,
+    quotaStats: uiState.quota.stats,
   };
 
   const showMemoryUsage =
-    config.getDebugMode() || settings.merged.ui?.showMemoryUsage || false;
-  const hideCWD = settings.merged.ui?.footer?.hideCWD;
-  const hideSandboxStatus = settings.merged.ui?.footer?.hideSandboxStatus;
-  const hideModelInfo = settings.merged.ui?.footer?.hideModelInfo;
-  const hideContextPercentage =
-    settings.merged.ui?.footer?.hideContextPercentage;
+    config.getDebugMode() || settings.merged.ui.showMemoryUsage;
+  const hideCWD = settings.merged.ui.footer.hideCWD;
+  const hideSandboxStatus = settings.merged.ui.footer.hideSandboxStatus;
+  const hideModelInfo = settings.merged.ui.footer.hideModelInfo;
+  const hideContextPercentage = settings.merged.ui.footer.hideContextPercentage;
 
-  const pathLength = Math.max(20, Math.floor(mainAreaWidth * 0.25));
+  const pathLength = Math.max(20, Math.floor(terminalWidth * 0.25));
   const displayPath = shortenPath(tildeifyPath(targetDir), pathLength);
 
   const justifyContent = hideCWD && hideModelInfo ? 'center' : 'space-between';
@@ -77,7 +79,7 @@ export const Footer: React.FC = () => {
   return (
     <Box
       justifyContent={justifyContent}
-      width={mainAreaWidth}
+      width={terminalWidth}
       flexDirection="row"
       alignItems="center"
       paddingX={1}
@@ -135,7 +137,7 @@ export const Footer: React.FC = () => {
           ) : (
             <Text color={theme.status.error}>
               no sandbox
-              {mainAreaWidth >= 100 && (
+              {terminalWidth >= 100 && (
                 <Text color={theme.text.secondary}> (see /docs)</Text>
               )}
             </Text>
@@ -148,7 +150,7 @@ export const Footer: React.FC = () => {
         <Box alignItems="center" justifyContent="flex-end">
           <Box alignItems="center">
             <Text color={theme.text.accent}>
-              {getDisplayString(model, config.getPreviewFeatures())}
+              {getDisplayString(model)}
               <Text color={theme.text.secondary}> /model</Text>
               {!hideContextPercentage && (
                 <>
@@ -156,7 +158,18 @@ export const Footer: React.FC = () => {
                   <ContextUsageDisplay
                     promptTokenCount={promptTokenCount}
                     model={model}
-                    terminalWidth={mainAreaWidth}
+                    terminalWidth={terminalWidth}
+                  />
+                </>
+              )}
+              {quotaStats && (
+                <>
+                  {' '}
+                  <QuotaDisplay
+                    remaining={quotaStats.remaining}
+                    limit={quotaStats.limit}
+                    resetTime={quotaStats.resetTime}
+                    terse={true}
                   />
                 </>
               )}

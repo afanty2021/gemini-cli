@@ -12,6 +12,7 @@ import {
   EVENT_API_ERROR,
   EVENT_API_RESPONSE,
   EVENT_TOOL_CALL,
+  EVENT_REWIND,
 } from './types.js';
 import type {
   ApiErrorEvent,
@@ -27,6 +28,7 @@ import type {
   LoopDetectedEvent,
   LoopDetectionDisabledEvent,
   SlashCommandEvent,
+  RewindEvent,
   ConversationFinishedEvent,
   ChatCompressionEvent,
   MalformedJsonResponseEvent,
@@ -48,9 +50,13 @@ import type {
   RecoveryAttemptEvent,
   WebFetchFallbackAttemptEvent,
   ExtensionUpdateEvent,
-  LlmLoopCheckEvent,
+  ApprovalModeSwitchEvent,
+  ApprovalModeDurationEvent,
   HookCallEvent,
   StartupStatsEvent,
+  LlmLoopCheckEvent,
+  PlanExecutionEvent,
+  ToolOutputMaskingEvent,
 } from './types.js';
 import {
   recordApiErrorMetrics,
@@ -69,6 +75,7 @@ import {
   recordRecoveryAttemptMetrics,
   recordLinesChanged,
   recordHookCallMetrics,
+  recordPlanExecution,
 } from './metrics.js';
 import { bufferTelemetryEvent } from './sdk.js';
 import type { UiEvent } from './uiTelemetry.js';
@@ -79,7 +86,7 @@ export function logCliConfiguration(
   config: Config,
   event: StartSessionEvent,
 ): void {
-  ClearcutLogger.getInstance(config)?.logStartSessionEvent(event);
+  void ClearcutLogger.getInstance(config)?.logStartSessionEvent(event);
   bufferTelemetryEvent(() => {
     const logger = logs.getLogger(SERVICE_NAME);
     const logRecord: LogRecord = {
@@ -104,6 +111,7 @@ export function logUserPrompt(config: Config, event: UserPromptEvent): void {
 }
 
 export function logToolCall(config: Config, event: ToolCallEvent): void {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const uiEvent = {
     ...event,
     'event.name': EVENT_TOOL_CALL,
@@ -147,6 +155,21 @@ export function logToolOutputTruncated(
   event: ToolOutputTruncatedEvent,
 ): void {
   ClearcutLogger.getInstance(config)?.logToolOutputTruncatedEvent(event);
+  bufferTelemetryEvent(() => {
+    const logger = logs.getLogger(SERVICE_NAME);
+    const logRecord: LogRecord = {
+      body: event.toLogBody(),
+      attributes: event.toOpenTelemetryAttributes(config),
+    };
+    logger.emit(logRecord);
+  });
+}
+
+export function logToolOutputMasking(
+  config: Config,
+  event: ToolOutputMaskingEvent,
+): void {
+  ClearcutLogger.getInstance(config)?.logToolOutputMaskingEvent(event);
   bufferTelemetryEvent(() => {
     const logger = logs.getLogger(SERVICE_NAME);
     const logRecord: LogRecord = {
@@ -220,6 +243,7 @@ export function logRipgrepFallback(
 }
 
 export function logApiError(config: Config, event: ApiErrorEvent): void {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const uiEvent = {
     ...event,
     'event.name': EVENT_API_ERROR,
@@ -251,6 +275,7 @@ export function logApiError(config: Config, event: ApiErrorEvent): void {
 }
 
 export function logApiResponse(config: Config, event: ApiResponseEvent): void {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const uiEvent = {
     ...event,
     'event.name': EVENT_API_RESPONSE,
@@ -339,6 +364,25 @@ export function logSlashCommand(
   event: SlashCommandEvent,
 ): void {
   ClearcutLogger.getInstance(config)?.logSlashCommandEvent(event);
+  bufferTelemetryEvent(() => {
+    const logger = logs.getLogger(SERVICE_NAME);
+    const logRecord: LogRecord = {
+      body: event.toLogBody(),
+      attributes: event.toOpenTelemetryAttributes(config),
+    };
+    logger.emit(logRecord);
+  });
+}
+
+export function logRewind(config: Config, event: RewindEvent): void {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  const uiEvent = {
+    ...event,
+    'event.name': EVENT_REWIND,
+    'event.timestamp': new Date().toISOString(),
+  } as UiEvent;
+  uiTelemetryService.addEvent(uiEvent);
+  ClearcutLogger.getInstance(config)?.logRewindEvent(event);
   bufferTelemetryEvent(() => {
     const logger = logs.getLogger(SERVICE_NAME);
     const logRecord: LogRecord = {
@@ -668,6 +712,46 @@ export function logLlmLoopCheck(
       attributes: event.toOpenTelemetryAttributes(config),
     };
     logger.emit(logRecord);
+  });
+}
+
+export function logApprovalModeSwitch(
+  config: Config,
+  event: ApprovalModeSwitchEvent,
+) {
+  ClearcutLogger.getInstance(config)?.logApprovalModeSwitchEvent(event);
+  bufferTelemetryEvent(() => {
+    logs.getLogger(SERVICE_NAME).emit({
+      body: event.toLogBody(),
+      attributes: event.toOpenTelemetryAttributes(config),
+    });
+  });
+}
+
+export function logApprovalModeDuration(
+  config: Config,
+  event: ApprovalModeDurationEvent,
+) {
+  ClearcutLogger.getInstance(config)?.logApprovalModeDurationEvent(event);
+  bufferTelemetryEvent(() => {
+    logs.getLogger(SERVICE_NAME).emit({
+      body: event.toLogBody(),
+      attributes: event.toOpenTelemetryAttributes(config),
+    });
+  });
+}
+
+export function logPlanExecution(config: Config, event: PlanExecutionEvent) {
+  ClearcutLogger.getInstance(config)?.logPlanExecutionEvent(event);
+  bufferTelemetryEvent(() => {
+    logs.getLogger(SERVICE_NAME).emit({
+      body: event.toLogBody(),
+      attributes: event.toOpenTelemetryAttributes(config),
+    });
+
+    recordPlanExecution(config, {
+      approval_mode: event.approval_mode,
+    });
   });
 }
 

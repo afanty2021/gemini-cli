@@ -19,17 +19,11 @@ import { logToolCall } from '../telemetry/loggers.js';
 import { ToolErrorType } from '../tools/tool-error.js';
 import { ToolCallEvent } from '../telemetry/types.js';
 import { runInDevTraceSpan } from '../telemetry/trace.js';
-import type { ModifyContext } from '../tools/modifiable-tool.js';
-import {
-  isModifiableDeclarativeTool,
-  modifyWithEditor,
-} from '../tools/modifiable-tool.js';
-import * as Diff from 'diff';
+import { ToolModificationHandler } from '../scheduler/tool-modifier.js';
 import { getToolSuggestion } from '../utils/tool-utils.js';
 import type { ToolConfirmationRequest } from '../confirmation-bus/types.js';
 import { MessageBusType } from '../confirmation-bus/types.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
-import { fireToolNotificationHook } from './coreToolHookTriggers.js';
 import {
   type ToolCall,
   type ValidatingToolCall,
@@ -49,6 +43,8 @@ import {
   type ToolCallResponseInfo,
 } from '../scheduler/types.js';
 import { ToolExecutor } from '../scheduler/tool-executor.js';
+import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
+import { getPolicyDenialError } from '../scheduler/policy.js';
 
 export type {
   ToolCall,
@@ -124,6 +120,7 @@ export class CoreToolScheduler {
   private toolCallQueue: ToolCall[] = [];
   private completedToolCallsForBatch: CompletedToolCall[] = [];
   private toolExecutor: ToolExecutor;
+  private toolModifier: ToolModificationHandler;
 
   constructor(options: CoreToolSchedulerOptions) {
     this.config = options.config;
@@ -132,6 +129,7 @@ export class CoreToolScheduler {
     this.onToolCallsUpdate = options.onToolCallsUpdate;
     this.getPreferredEditor = options.getPreferredEditor;
     this.toolExecutor = new ToolExecutor(this.config);
+    this.toolModifier = new ToolModificationHandler();
 
     // Subscribe to message bus for ASK_USER policy decisions
     // Use a static WeakMap to ensure we only subscribe ONCE per MessageBus instance
@@ -226,6 +224,7 @@ export class CoreToolScheduler {
             tool: toolInstance,
             invocation,
             status: 'success',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
             response: auxiliaryData as ToolCallResponseInfo,
             durationMs,
             outcome,
@@ -239,6 +238,7 @@ export class CoreToolScheduler {
             request: currentCall.request,
             status: 'error',
             tool: toolInstance,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
             response: auxiliaryData as ToolCallResponseInfo,
             durationMs,
             outcome,
@@ -249,6 +249,7 @@ export class CoreToolScheduler {
             request: currentCall.request,
             tool: toolInstance,
             status: 'awaiting_approval',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
             confirmationDetails: auxiliaryData as ToolCallConfirmationDetails,
             startTime: existingStartTime,
             outcome,
@@ -349,6 +350,7 @@ export class CoreToolScheduler {
 
       const invocationOrError = this.buildInvocation(
         call.tool,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         args as Record<string, unknown>,
       );
       if (invocationOrError instanceof Error) {
@@ -358,6 +360,7 @@ export class CoreToolScheduler {
           ToolErrorType.INVALID_TOOL_PARAMS,
         );
         return {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           request: { ...call.request, args: args as Record<string, unknown> },
           status: 'error',
           tool: call.tool,
@@ -367,6 +370,7 @@ export class CoreToolScheduler {
 
       return {
         ...call,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         request: { ...call.request, args: args as Record<string, unknown> },
         invocation: invocationOrError,
       };
@@ -594,21 +598,25 @@ export class CoreToolScheduler {
           name: toolCall.request.name,
           args: toolCall.request.args,
         };
-        const { decision } = await this.config
+        const serverName =
+          toolCall.tool instanceof DiscoveredMCPTool
+            ? toolCall.tool.serverName
+            : undefined;
+
+        const { decision, rule } = await this.config
           .getPolicyEngine()
-          .check(toolCallForPolicy, undefined); // Server name undefined for local tools
+          .check(toolCallForPolicy, serverName);
 
         if (decision === PolicyDecision.DENY) {
-          const errorMessage = `Tool execution denied by policy.`;
+          const { errorMessage, errorType } = getPolicyDenialError(
+            this.config,
+            rule,
+          );
           this.setStatusInternal(
             reqInfo.callId,
             'error',
             signal,
-            createErrorResponse(
-              reqInfo,
-              new Error(errorMessage),
-              ToolErrorType.POLICY_VIOLATION,
-            ),
+            createErrorResponse(reqInfo, new Error(errorMessage), errorType),
           );
           await this.checkAndNotifyCompletion(signal);
           return;
@@ -643,10 +651,9 @@ export class CoreToolScheduler {
             }
 
             // Fire Notification hook before showing confirmation to user
-            const messageBus = this.config.getMessageBus();
-            const hooksEnabled = this.config.getEnableHooks();
-            if (hooksEnabled && messageBus) {
-              await fireToolNotificationHook(messageBus, confirmationDetails);
+            const hookSystem = this.config.getHookSystem();
+            if (hookSystem) {
+              await hookSystem.fireToolNotificationEvent(confirmationDetails);
             }
 
             // Allow IDE to resolve confirmation
@@ -748,104 +755,67 @@ export class CoreToolScheduler {
       this.cancelAll(signal);
       return; // `cancelAll` calls `checkAndNotifyCompletion`, so we can exit here.
     } else if (outcome === ToolConfirmationOutcome.ModifyWithEditor) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       const waitingToolCall = toolCall as WaitingToolCall;
-      if (isModifiableDeclarativeTool(waitingToolCall.tool)) {
-        const modifyContext = waitingToolCall.tool.getModifyContext(signal);
-        const editorType = this.getPreferredEditor();
-        if (!editorType) {
-          return;
-        }
 
+      const editorType = this.getPreferredEditor();
+      if (!editorType) {
+        return;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      this.setStatusInternal(callId, 'awaiting_approval', signal, {
+        ...waitingToolCall.confirmationDetails,
+        isModifying: true,
+      } as ToolCallConfirmationDetails);
+
+      const result = await this.toolModifier.handleModifyWithEditor(
+        waitingToolCall,
+        editorType,
+        signal,
+      );
+
+      // Restore status (isModifying: false) and update diff if result exists
+      if (result) {
+        this.setArgsInternal(callId, result.updatedParams);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         this.setStatusInternal(callId, 'awaiting_approval', signal, {
           ...waitingToolCall.confirmationDetails,
-          isModifying: true,
+          fileDiff: result.updatedDiff,
+          isModifying: false,
         } as ToolCallConfirmationDetails);
-
-        const contentOverrides =
-          waitingToolCall.confirmationDetails.type === 'edit'
-            ? {
-                currentContent:
-                  waitingToolCall.confirmationDetails.originalContent,
-                proposedContent: waitingToolCall.confirmationDetails.newContent,
-              }
-            : undefined;
-
-        const { updatedParams, updatedDiff } = await modifyWithEditor<
-          typeof waitingToolCall.request.args
-        >(
-          waitingToolCall.request.args,
-          modifyContext as ModifyContext<typeof waitingToolCall.request.args>,
-          editorType,
-          signal,
-          contentOverrides,
-        );
-        this.setArgsInternal(callId, updatedParams);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         this.setStatusInternal(callId, 'awaiting_approval', signal, {
           ...waitingToolCall.confirmationDetails,
-          fileDiff: updatedDiff,
           isModifying: false,
         } as ToolCallConfirmationDetails);
       }
     } else {
-      // If the client provided new content, apply it before scheduling.
-      if (payload?.newContent && toolCall) {
-        await this._applyInlineModify(
+      // If the client provided new content, apply it and wait for
+      // re-confirmation.
+      if (payload && 'newContent' in payload && toolCall) {
+        const result = await this.toolModifier.applyInlineModify(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           toolCall as WaitingToolCall,
           payload,
           signal,
         );
+        if (result) {
+          this.setArgsInternal(callId, result.updatedParams);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+          this.setStatusInternal(callId, 'awaiting_approval', signal, {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+            ...(toolCall as WaitingToolCall).confirmationDetails,
+            fileDiff: result.updatedDiff,
+          } as ToolCallConfirmationDetails);
+          // After an inline modification, wait for another user confirmation.
+          return;
+        }
       }
       this.setStatusInternal(callId, 'scheduled', signal);
     }
     await this.attemptExecutionOfScheduledCalls(signal);
-  }
-
-  /**
-   * Applies user-provided content changes to a tool call that is awaiting confirmation.
-   * This method updates the tool's arguments and refreshes the confirmation prompt with a new diff
-   * before the tool is scheduled for execution.
-   * @private
-   */
-  private async _applyInlineModify(
-    toolCall: WaitingToolCall,
-    payload: ToolConfirmationPayload,
-    signal: AbortSignal,
-  ): Promise<void> {
-    if (
-      toolCall.confirmationDetails.type !== 'edit' ||
-      !isModifiableDeclarativeTool(toolCall.tool)
-    ) {
-      return;
-    }
-
-    const modifyContext = toolCall.tool.getModifyContext(signal);
-    const currentContent = await modifyContext.getCurrentContent(
-      toolCall.request.args,
-    );
-
-    const updatedParams = modifyContext.createUpdatedParams(
-      currentContent,
-      payload.newContent,
-      toolCall.request.args,
-    );
-    const updatedDiff = Diff.createPatch(
-      modifyContext.getFilePath(toolCall.request.args),
-      currentContent,
-      payload.newContent,
-      'Current',
-      'Proposed',
-    );
-
-    this.setArgsInternal(toolCall.request.callId, updatedParams);
-    this.setStatusInternal(
-      toolCall.request.callId,
-      'awaiting_approval',
-      signal,
-      {
-        ...toolCall.confirmationDetails,
-        fileDiff: updatedDiff,
-      },
-    );
   }
 
   private async attemptExecutionOfScheduledCalls(
@@ -949,21 +919,36 @@ export class CoreToolScheduler {
         this._cancelAllQueuedCalls();
       }
 
+      // If we are already finalizing, another concurrent call to
+      // checkAndNotifyCompletion will just return. The ongoing finalized loop
+      // will pick up any new tools added to completedToolCallsForBatch.
+      if (this.isFinalizingToolCalls) {
+        return;
+      }
+
       // If there's nothing to report and we weren't cancelled, we can stop.
       // But if we were cancelled, we must proceed to potentially start the next queued request.
       if (this.completedToolCallsForBatch.length === 0 && !signal.aborted) {
         return;
       }
 
-      if (this.onAllToolCallsComplete) {
-        this.isFinalizingToolCalls = true;
-        // Use the batch array, not the (now empty) active array.
-        await this.onAllToolCallsComplete(this.completedToolCallsForBatch);
-        this.completedToolCallsForBatch = []; // Clear after reporting.
+      this.isFinalizingToolCalls = true;
+      try {
+        // We use a while loop here to ensure that if new tools are added to the
+        // batch (e.g., via cancellation) while we are awaiting
+        // onAllToolCallsComplete, they are also reported before we finish.
+        while (this.completedToolCallsForBatch.length > 0) {
+          const batchToReport = [...this.completedToolCallsForBatch];
+          this.completedToolCallsForBatch = [];
+          if (this.onAllToolCallsComplete) {
+            await this.onAllToolCallsComplete(batchToReport);
+          }
+        }
+      } finally {
         this.isFinalizingToolCalls = false;
+        this.isCancelling = false;
+        this.notifyToolCallsUpdate();
       }
-      this.isCancelling = false;
-      this.notifyToolCallsUpdate();
 
       // After completion of the entire batch, process the next item in the main request queue.
       if (this.requestQueue.length > 0) {
