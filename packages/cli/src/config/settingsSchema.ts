@@ -152,6 +152,18 @@ const SETTINGS_SCHEMA = {
     },
   },
 
+  policyPaths: {
+    type: 'array',
+    label: 'Policy Paths',
+    category: 'Advanced',
+    requiresRestart: true,
+    default: [] as string[],
+    description: 'Additional policy files or directories to load.',
+    showInDialog: false,
+    items: { type: 'string' },
+    mergeStrategy: MergeStrategy.UNION,
+  },
+
   general: {
     type: 'object',
     label: 'General',
@@ -178,6 +190,24 @@ const SETTINGS_SCHEMA = {
         default: false,
         description: 'Enable Vim keybindings',
         showInDialog: true,
+      },
+      defaultApprovalMode: {
+        type: 'enum',
+        label: 'Default Approval Mode',
+        category: 'General',
+        requiresRestart: false,
+        default: 'default',
+        description: oneLine`
+          The default approval mode for tool execution.
+          'default' prompts for approval, 'auto_edit' auto-approves edit tools,
+          and 'plan' is read-only mode. 'yolo' is not supported yet.
+        `,
+        showInDialog: true,
+        options: [
+          { value: 'default', label: 'Default' },
+          { value: 'auto_edit', label: 'Auto Edit' },
+          { value: 'plan', label: 'Plan' },
+        ],
       },
       devtools: {
         type: 'boolean',
@@ -392,6 +422,19 @@ const SETTINGS_SCHEMA = {
         description: 'Hide the window title bar',
         showInDialog: true,
       },
+      inlineThinkingMode: {
+        type: 'enum',
+        label: 'Inline Thinking',
+        category: 'UI',
+        requiresRestart: false,
+        default: 'off',
+        description: 'Display model thinking inline: off or full.',
+        showInDialog: true,
+        options: [
+          { value: 'off', label: 'Off' },
+          { value: 'full', label: 'Full' },
+        ],
+      },
       showStatusInTitle: {
         type: 'boolean',
         label: 'Show Thoughts in Title',
@@ -429,6 +472,15 @@ const SETTINGS_SCHEMA = {
         requiresRestart: false,
         default: false,
         description: 'Hide helpful tips in the UI',
+        showInDialog: true,
+      },
+      showShortcutsHint: {
+        type: 'boolean',
+        label: 'Show Shortcuts Hint',
+        category: 'UI',
+        requiresRestart: false,
+        default: true,
+        description: 'Show the "? for shortcuts" hint above the input.',
         showInDialog: true,
       },
       hideBanner: {
@@ -1070,24 +1122,7 @@ const SETTINGS_SCHEMA = {
           },
         },
       },
-      approvalMode: {
-        type: 'enum',
-        label: 'Approval Mode',
-        category: 'Tools',
-        requiresRestart: false,
-        default: 'default',
-        description: oneLine`
-          The default approval mode for tool execution.
-          'default' prompts for approval, 'auto_edit' auto-approves edit tools,
-          and 'plan' is read-only mode. 'yolo' is not supported yet.
-        `,
-        showInDialog: true,
-        options: [
-          { value: 'default', label: 'Default' },
-          { value: 'auto_edit', label: 'Auto Edit' },
-          { value: 'plan', label: 'Plan' },
-        ],
-      },
+
       core: {
         type: 'array',
         label: 'Core Tools',
@@ -1399,7 +1434,7 @@ const SETTINGS_SCHEMA = {
         requiresRestart: true,
         default: false,
         description: 'Automatically configure Node.js memory limits',
-        showInDialog: false,
+        showInDialog: true,
       },
       dnsResolutionOrder: {
         type: 'string',
@@ -1448,7 +1483,7 @@ const SETTINGS_SCHEMA = {
         label: 'Tool Output Masking',
         category: 'Experimental',
         requiresRestart: true,
-        ignoreInDocs: true,
+        ignoreInDocs: false,
         default: {},
         description:
           'Advanced settings for tool output masking to manage context window efficiency.',
@@ -1459,9 +1494,9 @@ const SETTINGS_SCHEMA = {
             label: 'Enable Tool Output Masking',
             category: 'Experimental',
             requiresRestart: true,
-            default: false,
+            default: true,
             description: 'Enables tool output masking to save tokens.',
-            showInDialog: false,
+            showInDialog: true,
           },
           toolProtectionThreshold: {
             type: 'number',
@@ -1521,6 +1556,15 @@ const SETTINGS_SCHEMA = {
         requiresRestart: true,
         default: true,
         description: 'Enable requesting and fetching of extension settings.',
+        showInDialog: false,
+      },
+      extensionRegistry: {
+        type: 'boolean',
+        label: 'Extension Registry Explore UI',
+        category: 'Experimental',
+        requiresRestart: true,
+        default: false,
+        description: 'Enable extension registry explore UI.',
         showInDialog: false,
       },
       extensionReloading: {

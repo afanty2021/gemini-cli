@@ -16,10 +16,11 @@ import {
   vi,
   afterEach,
 } from 'vitest';
+
 import { createExtension } from '../test-utils/createExtension.js';
 import { ExtensionManager } from './extension-manager.js';
 import { themeManager, DEFAULT_THEME } from '../ui/themes/theme-manager.js';
-import { GEMINI_DIR, type Config } from '@google/gemini-cli-core';
+import { GEMINI_DIR, type Config, tmpdir } from '@google/gemini-cli-core';
 import { createTestMergedSettings, SettingScope } from './settings.js';
 
 describe('ExtensionManager theme loading', () => {
@@ -29,7 +30,7 @@ describe('ExtensionManager theme loading', () => {
 
   beforeAll(async () => {
     tempHomeDir = await fs.promises.mkdtemp(
-      path.join(fs.realpathSync('/tmp'), 'gemini-cli-test-'),
+      path.join(tmpdir(), 'gemini-cli-test-'),
     );
   });
 

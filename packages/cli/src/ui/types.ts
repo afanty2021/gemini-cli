@@ -9,7 +9,6 @@ import type {
   GeminiCLIExtension,
   MCPServerConfig,
   ThoughtSummary,
-  ToolCallConfirmationDetails,
   SerializableConfirmationDetails,
   ToolResultDisplay,
   RetrieveUserQuotaResponse,
@@ -64,10 +63,7 @@ export interface ToolCallEvent {
   name: string;
   args: Record<string, never>;
   resultDisplay: ToolResultDisplay | undefined;
-  confirmationDetails:
-    | ToolCallConfirmationDetails
-    | SerializableConfirmationDetails
-    | undefined;
+  confirmationDetails: SerializableConfirmationDetails | undefined;
   correlationId?: string;
 }
 
@@ -77,10 +73,7 @@ export interface IndividualToolCallDisplay {
   description: string;
   resultDisplay: ToolResultDisplay | undefined;
   status: ToolCallStatus;
-  confirmationDetails:
-    | ToolCallConfirmationDetails
-    | SerializableConfirmationDetails
-    | undefined;
+  confirmationDetails: SerializableConfirmationDetails | undefined;
   renderOutputAsMarkdown?: boolean;
   ptyId?: number;
   outputFile?: string;
@@ -220,6 +213,11 @@ export interface ChatDetail {
   mtime: string;
 }
 
+export type HistoryItemThinking = HistoryItemBase & {
+  type: 'thinking';
+  thought: ThoughtSummary;
+};
+
 export type HistoryItemChatList = HistoryItemBase & {
   type: 'chat_list';
   chats: ChatDetail[];
@@ -343,6 +341,7 @@ export type HistoryItemWithoutId =
   | HistoryItemAgentsList
   | HistoryItemMcpStatus
   | HistoryItemChatList
+  | HistoryItemThinking
   | HistoryItemHooksList;
 
 export type HistoryItem = HistoryItemWithoutId & { id: number };
