@@ -42,7 +42,7 @@ export class AskUserTool extends BaseDeclarativeTool<
             maxItems: 4,
             items: {
               type: 'object',
-              required: ['question', 'header'],
+              required: ['question', 'header', 'type'],
               properties: {
                 question: {
                   type: 'string',
@@ -111,7 +111,7 @@ export class AskUserTool extends BaseDeclarativeTool<
 
     for (let i = 0; i < params.questions.length; i++) {
       const q = params.questions[i];
-      const questionType = q.type ?? QuestionType.CHOICE;
+      const questionType = q.type;
 
       // Validate that 'choice' type has options
       if (questionType === QuestionType.CHOICE) {
@@ -186,7 +186,7 @@ export class AskUserInvocation extends BaseToolInvocation<
   ): Promise<ToolAskUserConfirmationDetails | false> {
     const normalizedQuestions = this.params.questions.map((q) => ({
       ...q,
-      type: q.type ?? QuestionType.CHOICE,
+      type: q.type,
     }));
 
     return {
@@ -210,9 +210,7 @@ export class AskUserInvocation extends BaseToolInvocation<
   }
 
   async execute(_signal: AbortSignal): Promise<ToolResult> {
-    const questionTypes = this.params.questions.map(
-      (q) => q.type ?? QuestionType.CHOICE,
-    );
+    const questionTypes = this.params.questions.map((q) => q.type);
 
     if (this.confirmationOutcome === ToolConfirmationOutcome.Cancel) {
       return {
@@ -259,38 +257,6 @@ export class AskUserInvocation extends BaseToolInvocation<
       data: metrics,
     };
   }
-}
-
-/**
- * Determines if an 'Ask User' tool call should be hidden from the standard tool history UI.
- *
- * We hide Ask User tools in two cases:
- * 1. They are in progress because they are displayed using a specialized UI (AskUserDialog).
- * 2. They have errored without a result display (e.g. validation errors), in which case
- *    the agent self-corrects and we don't want to clutter the UI.
- *
- * NOTE: The 'status' parameter values are intended to match the CLI's ToolCallStatus enum.
- */
-export function shouldHideAskUserTool(
-  name: string,
-  status: string,
-  hasResultDisplay: boolean,
-): boolean {
-  if (name !== ASK_USER_DISPLAY_NAME) {
-    return false;
-  }
-
-  // Case 1: In-progress tools (Pending, Executing, Confirming)
-  if (['Pending', 'Executing', 'Confirming'].includes(status)) {
-    return true;
-  }
-
-  // Case 2: Error without result display
-  if (status === 'Error' && !hasResultDisplay) {
-    return true;
-  }
-
-  return false;
 }
 
 /**
