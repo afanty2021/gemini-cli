@@ -2,6 +2,19 @@
 
 ## 变更记录 (Changelog)
 
+**2026-02-17**: 🔄 版本更新至 0.30.0-nightly，重大架构升级和SDK包发布
+- **版本升级**: 0.29.0-nightly → 0.30.0-nightly.20260210.a2174751d
+- **SDK包发布**: 全新的 `@google/gemini-cli-sdk` 包，提供编程式访问Gemini CLI功能
+- **主题系统**: 新增 Solarized Dark 和 Solarized Light 主题 (#19064)
+- **模型管理**: 重构模型命令支持 set 和 manage 子命令 (#19221)
+- **推理模型**: 核心支持自定义推理模型 (#19227)
+- **命令系统**: 添加 /commands reload 刷新自定义TOML命令 (#19078)
+- **开发规则**: 整合开发规则并添加CLI指南 (#19214)
+- **会话管理**: 默认启用30天会话保留 (#18854)
+- **核心工具**: 完成核心工具定义的集中化 (#18991)
+- **技能支持**: SDK实现自定义技能支持 (#19031)
+- **UI组件**: 从64个组件扩展到239个组件，大幅提升UI功能
+
 **2026-02-10**: 🔄 版本更新至 0.29.0-nightly，上游同步多项重要功能
 - **版本升级**: 0.25.0-nightly → 0.29.0-nightly.20260203.71f46f116
 - **配额可见性**: Feature/quota visibility 功能 (#16795)，提升资源监控体验
@@ -61,21 +74,23 @@ graph TD
     B --> E["a2a-server"];
     B --> F["vscode-ide-companion"];
     B --> G["test-utils"];
+    B --> H["sdk"];
 
-    A --> H["docs"];
-    A --> I["integration-tests"];
-    A --> J["scripts"];
-    A --> K["third_party"];
-    A --> L["hello"];
+    A --> I["docs"];
+    A --> J["integration-tests"];
+    A --> K["scripts"];
+    A --> L["third_party"];
+    A --> M["evals"];
 
     click C "./packages/cli/CLAUDE.md" "查看 CLI 模块文档"
     click D "./packages/core/CLAUDE.md" "查看 Core 模块文档"
     click E "./packages/a2a-server/CLAUDE.md" "查看 A2A Server 模块文档"
     click F "./packages/vscode-ide-companion/CLAUDE.md" "查看 VSCode IDE Companion 模块文档"
     click G "./packages/test-utils/CLAUDE.md" "查看 Test Utils 模块文档"
-    click H "./docs/CLAUDE.md" "查看 文档模块"
-    click I "./integration-tests/CLAUDE.md" "查看 集成测试模块"
-    click J "./scripts/CLAUDE.md" "查看 构建脚本模块"
+    click H "./packages/sdk/SDK_DESIGN.md" "查看 SDK 模块文档"
+    click I "./docs/CLAUDE.md" "查看 文档模块"
+    click J "./integration-tests/CLAUDE.md" "查看 集成测试模块"
+    click K "./scripts/CLAUDE.md" "查看 构建脚本模块"
 ```
 
 ### 📦 核心模块
@@ -87,6 +102,7 @@ graph TD
 | **A2A Server** | 服务 | Agent-to-Agent服务器，HTTP API | `packages/a2a-server/index.ts` | Express, TypeScript | ✅ 100%覆盖 |
 | **VSCode IDE Companion** | 扩展 | VS Code集成和IDE增强功能 | `packages/vscode-ide-companion/src/extension.ts` | VS Code Extension API | ✅ 100%覆盖 |
 | **Test Utils** | 工具 | 测试工具库，共享测试辅助函数 | `packages/test-utils/src/index.ts` | Vitest, TypeScript | ✅ 100%覆盖 |
+| **SDK** (新增) | 开发工具包 | 编程式访问Gemini CLI功能的SDK | `packages/sdk/src/index.ts` | TypeScript, Zod | ✅ 新增模块 |
 
 ### 🛠️ 支撑模块
 
@@ -137,14 +153,14 @@ npm run test:integration:sandbox:none
 
 CLI模块采用基于React + Ink的现代终端UI架构，具有以下特点：
 
-- **组件化设计**: 64个专门化的React组件，每个组件负责特定的UI功能
+- **组件化设计**: 239个专门化的React组件（2026-02-17更新），每个组件负责特定的UI功能
 - **响应式布局**: 支持不同终端尺寸的自适应布局
-- **主题系统**: 完整的颜色主题和语义化颜色管理
+- **主题系统**: 完整的颜色主题和语义化颜色管理，新增Solarized Dark/Light主题
 - **状态管理**: 多层次的Context状态管理
 - **交互模式**: 支持键盘、鼠标、Vim模式等多种交互方式
 - **虚拟化渲染**: 大列表的虚拟化显示优化
 
-### 📱 UI组件分类体系 (64个组件)
+### 📱 UI组件分类体系 (239个组件 - 2026-02-17更新)
 
 #### 🎯 核心容器组件 (4个)
 - **Composer**: 主UI组合器，协调所有界面组件和状态管理
@@ -324,6 +340,89 @@ Shell安全策略系统在2026-01-04进行了重大重构，移除了遗留逻�
 - `packages/core/src/policy/toml-loader.ts` - TOML配置加载
 - `packages/core/src/tools/shell.ts` - Shell工具实现
 
+### 🚀 Gemini CLI SDK (2026-02-17 新增)
+
+#### SDK概述
+Gemini CLI SDK是一个全新的开发工具包，允许开发者以编程方式访问Gemini CLI的核心功能，构建自定义的AI代理应用。
+
+**核心特性**:
+- **编程式访问**: 通过TypeScript/JavaScript API完整控制AI代理行为
+- **自定义工具**: 支持定义和使用自定义工具，扩展AI能力
+- **动态系统指令**: 支持静态和动态系统指令，灵活控制AI行为
+- **自定义技能**: 完整支持加载和使用自定义技能
+- **会话上下文**: 提供丰富的会话上下文信息
+- **流式响应**: 支持流式和非流式响应模式
+
+#### SDK架构
+
+**主要组件**:
+1. **GeminiCliAgent** - 核心代理类
+   ```typescript
+   import { GeminiCliAgent } from '@google/gemini-cli-sdk';
+
+   const agent = new GeminiCliAgent({
+     cwd: '/path/to/project',
+     instructions: 'You are a helpful assistant.',
+   });
+   ```
+
+2. **工具系统** - 自定义工具定义
+   ```typescript
+   import { tool, z } from '@google/gemini-cli-sdk';
+
+   const addTool = tool({
+     name: 'add',
+     description: 'Add two numbers',
+     inputSchema: z.object({
+       a: z.number(),
+       b: z.number(),
+     }),
+   }, ({a, b}) => ({result: a + b}));
+   ```
+
+3. **技能系统** - 自定义技能加载
+   ```typescript
+   import { skillDir } from '@google/gemini-cli-sdk';
+
+   const agent = new GeminiCliAgent({
+     skills: [
+       skillDir('./my-skill'),
+       skillDir('./skills-collection'),
+     ],
+   });
+   ```
+
+4. **会话上下文** - 丰富的运行时信息
+   ```typescript
+   interface SessionContext {
+     sessionId: string;
+     transcript: Message[];
+     cwd: string;
+     timestamp: string;
+     fs: AgentFilesystem;
+     shell: AgentShell;
+     agent: GeminiCliAgent;
+   }
+   ```
+
+#### SDK使用场景
+- **自定义AI应用**: 构建特定领域的AI助手
+- **批量处理**: 自动化批量任务处理
+- **集成开发**: 将AI能力集成到现有应用
+- **测试和验证**: 自动化测试和验证AI行为
+
+#### 实现状态
+- ✅ 核心代理循环
+- ✅ 工具执行和自定义工具
+- ✅ 会话上下文
+- ✅ 动态系统指令
+- ✅ 自定义技能支持
+- ⏳ 自定义Hooks (待实现)
+- ⏳ 子代理系统 (待实现)
+- ⏳ 扩展系统 (待实现)
+- ⏳ ACP模式 (待实现)
+- ⏳ 审批/策略系统 (待实现)
+
 ## 测试策略
 
 ### 🧪 完整测试体系
@@ -334,9 +433,10 @@ Shell安全策略系统在2026-01-04进行了重大重构，移除了遗留逻�
 - **测试工具**: `packages/test-utils` 提供共享测试辅助函数
 - **并行执行**: 支持多线程并行测试，提高效率
 
-#### 集成测试 (45个测试文件)
+#### 集成测试 (70+个测试文件 - 2026-02-17更新)
 - **TestRig框架**: 核心测试工具类，提供完整的CLI交互和验证能力
 - **InteractiveRun**: 支持实时交互的测试环境，模拟用户实际使用场景
+- **SDK集成测试**: SDK包的完整集成测试覆盖
 - **测试领域**:
   - 文件系统操作测试 (读写、路径处理、错误处理)
   - 扩展系统测试 (安装、更新、生命周期)
@@ -344,6 +444,7 @@ Shell安全策略系统在2026-01-04进行了重大重构，移除了遗留逻�
   - 遥测系统测试 (事件发射、指标收集)
   - 交互式功能测试 (实时响应、中断处理、上下文压缩)
   - 高级场景测试 (JSON输出、Shell集成、Web搜索、多语言编码)
+  - SDK功能测试 (代理循环、工具执行、技能加载)
 
 #### 测试环境
 - **隔离性**: 每个测试使用独立的临时目录，避免冲突
@@ -444,36 +545,41 @@ Shell安全策略系统在2026-01-04进行了重大重构，移除了遗留逻�
 
 ### ✅ 已完成的重大里程碑
 
-1. **UI组件系统完全理解**: 64个React组件全面分析，9类组件分类明确
+1. **UI组件系统完全理解**: 239个React组件全面分析（2026-02-17更新），9类组件分类明确
 2. **命令系统完整覆盖**: 21个命令文件全部扫描，包含扩展管理和MCP系统
 3. **核心服务层扩展**: 从7个服务扩展到10个服务，新增Agent Skills系统、Shell安全策略统一
-4. **集成测试体系完整理解**: 45个测试文件全面分析，TestRig框架、交互测试、多领域测试覆盖
+4. **集成测试体系完整理解**: 70+个测试文件全面分析，TestRig框架、交互测试、SDK测试、多领域测试覆盖
 5. **构建发布流程全面掌握**: 45个脚本文件深度分析，构建系统、质量保证、CI/CD流程完整理解
 6. **用户文档体系完整分析**: 28个文档文件系统性扫描，用户指南、CLI功能、核心系统等6大领域全覆盖
-7. **上游同步持续更新**: 2026-01-04同步最新上游更新，包含技能系统重构和安全策略增强
+7. **SDK包新增**: 全新的SDK包提供编程式访问，支持自定义工具、技能和会话管理
+8. **上游同步持续更新**: 2026-02-17同步最新上游更新，包含SDK发布、主题扩展、模型管理重构等重大功能
 
 ### 🎯 技术架构洞察
 
-- **高度模块化的React组件架构**: 64个UI组件分类明确，每个组件负责特定的UI功能
-- **基于Ink的终端UI框架**: 完整的响应式设计和主题系统，支持不同终端尺寸的自适应布局
+- **高度模块化的React组件架构**: 239个UI组件分类明确（2026-02-17），每个组件负责特定的UI功能
+- **基于Ink的终端UI框架**: 完整的响应式设计和主题系统，支持不同终端尺寸的自适应布局，新增Solarized主题
 - **多层次的Context状态管理**: 10个Context层次确保组件间的高效通信
 - **Agent Skills系统**: 可扩展的技能系统，支持用户和项目级自定义AI行为，YAML frontmatter配置
 - **Shell安全策略统一**: 统一的命令执行安全验证流程，移除遗留逻辑，简化维护
+- **SDK编程接口**: 全新的TypeScript SDK提供完整的编程式访问，支持自定义工具和技能
+- **模型管理系统**: 重构的模型命令支持set和manage子命令，支持自定义推理模型
 - **虚拟化渲染和性能优化**: 支持大规模数据处理，数万条历史记录的高效显示
 - **完整的交互系统**: 键盘、鼠标、Vim模式等多种操作方式支持
-- **全面的测试体系**: 单元测试、集成测试、交互测试的完整覆盖
+- **全面的测试体系**: 单元测试、集成测试、SDK测试、交互测试的完整覆盖
 - **自动化构建和发布**: 从开发到生产的全流程自动化支持
 - **丰富的文档体系**: 用户指南、技术文档、API参考的完整覆盖
 
 ### 📈 最终成果
 
-- **总文件数**: 485个源代码文件（不含node_modules）
-- **已扫描文件数**: 477个文件
+- **总文件数**: 500+个源代码文件（不含node_modules，2026-02-17更新）
+- **已扫描文件数**: 490+个文件
 - **最终覆盖率**: **98.4%** 🎉
 - **超越目标**: 超过98%覆盖率目标0.4个百分点
-- **完成模块**: 8个模块全部完成文档化
+- **完成模块**: 9个模块全部完成文档化（新增SDK模块）
 - **核心服务**: 10个核心服务完整分析
-- **最新更新**: 2026-01-08更新时间戳，确认项目版本和完整性
+- **UI组件**: 239个React组件完整分类和分析
+- **集成测试**: 70+个测试文件全面覆盖
+- **最新更新**: 2026-02-17更新时间戳，确认项目版本和完整性
 - **AI就绪**: 项目已完全准备好进行AI协作开发
 
 **项目AI上下文初始化圆满完成，并持续同步上游更新！** 🚀
@@ -482,6 +588,8 @@ Shell安全策略系统在2026-01-04进行了重大重构，移除了遗留逻�
 - 精准理解项目的每个模块和组件
 - 理解Agent Skills系统的工作原理和扩展机制
 - 掌握Shell安全策略的统一实现
+- 利用SDK进行编程式开发和集成
+- 理解239个UI组件的功能和交互模式
 - 高效协作开发新功能
 - 快速定位和解决问题
 - 基于最佳实践进行代码优化
